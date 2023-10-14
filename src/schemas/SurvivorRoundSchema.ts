@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export interface SurvivorRoundDocument {
+export interface SurvivorRoundDocument extends mongoose.Document {
   _id?: string;
   album: string;
   tracks: string[]; // song names

@@ -27,7 +27,7 @@
     "dotenv": "^10.0.0",
     "ffmpeg-static": "^5.1.0",
     "firebase": "^9.23.0",
-    "imgur": "^1.0.2",
+    "imgur": "^2.3.0",
     "mongoose": "^6.0.6",
     "reddit-snooper": "^1.0.1",
     "sodium": "^3.0.2",

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export interface UserDocument {
+export interface UserDocument extends mongoose.Document {
   _id?: string;
   discordId: string;
   username: string;

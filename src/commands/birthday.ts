@@ -1,9 +1,10 @@
-const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
-const { getTimeZones, timeZonesNames } = require('@vvo/tzdb');
-const User = require('../schemas/UserSchema');
+import { ColorResolvable, EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, TextChannel } from 'discord.js';
+import { getTimeZones, timeZonesNames } from '@vvo/tzdb';
+import User from '../schemas/UserSchema';
+import { SlashCommand } from '../lib/types';
 
-module.exports = {
-  data: new SlashCommandBuilder()
+const birthdayCommand: SlashCommand = {
+  command: new SlashCommandBuilder()
     .setName('birthday')
     .setDescription('Set your birthday!')
     .addIntegerOption((option) => option.setName('month').setDescription(`The month you were born`).setMinValue(1).setMaxValue(12).setRequired(true))
@@ -16,24 +17,34 @@ module.exports = {
         .setMaxValue(new Date().getFullYear() - 1)
         .setRequired(true)
     )
-    .addStringOption((option) => option.setName('timezone').setDescription(`The TZ database name (ex: Europe/London)`).setRequired(true)),
+    .addStringOption((option) => option.setName('timezone').setDescription(`The TZ database name (ex: Europe/London)`).setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.UseApplicationCommands),
 
   async execute(interaction) {
     let monthOption = interaction.options.getInteger('month');
     let dayOption = interaction.options.getInteger('day');
     let yearOption = interaction.options.getInteger('year');
     const timezoneOption = interaction.options.getString('timezone');
+    const logChannel = <TextChannel>interaction.guild?.channels.cache.get(process.env.LOGS_CHANNEL_ID!);
+
+    if (!monthOption || !dayOption || !yearOption || !timezoneOption || !interaction.guild || !logChannel) return;
 
     if (!timeZonesNames.includes(timezoneOption)) {
       const tzErrEmbed = new EmbedBuilder()
         .setDescription('Please enter a valid TZ database name. More info can be found here: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones#List \nExample: **America/Los_Angeles**')
-        .setColor(process.env.ERROR_COLOR);
+        .setColor(process.env.ERROR_COLOR as ColorResolvable);
 
       return interaction.reply({ embeds: [tzErrEmbed], ephemeral: true });
     }
 
     // adjust their timezone to PST (Note: Heroku doesn't run on PST, but we're sticking to the variable names)
-    const pstOffset = (getTimeZones().find((tz) => tz.name === timezoneOption).rawOffsetInMinutes + 60) / 60; // hours behind or ahead of PST; add 480 after rawOffsetInMinutes before dividing by 60 for PST/60 for Heroku's timezone
+    const timezone = getTimeZones().find((tz) => tz.name === timezoneOption);
+    if (!timezone) {
+      const tzErrEmbed = new EmbedBuilder().setDescription('Could not find timezone.').setColor(process.env.ERROR_COLOR as ColorResolvable);
+
+      return interaction.reply({ embeds: [tzErrEmbed], ephemeral: true });
+    }
+    const pstOffset = (timezone.rawOffsetInMinutes + 60) / 60; // hours behind or ahead of PST; add 480 after rawOffsetInMinutes before dividing by 60 for PST/60 for Heroku's timezone
     let midnightPST = pstOffset != 0 ? (24 - pstOffset) % 24 : 0;
 
     // if it's a birthday, for example: May 25th EST at midnight
@@ -71,21 +82,20 @@ module.exports = {
 
     const birthdayAttempt = new Date(`${monthOption} ${dayOption} ${yearOption} ${midnightPST}:00`);
 
-    const logChannel = interaction.guild.channels.cache.get(process.env.LOGS_CHANNEL_ID);
     const birthdayEmbed = new EmbedBuilder()
-      .setColor(process.env.CONFIRM_COLOR)
+      .setColor(process.env.CONFIRM_COLOR as ColorResolvable)
       .addFields([{ name: 'Timezone', value: timezoneOption }])
       .setFooter({
         text: interaction.guild.name,
-        iconURL: interaction.guild.iconURL({ dynamic: true })
+        iconURL: interaction.guild.iconURL() ?? ''
       });
 
     const personalEmbed = new EmbedBuilder()
-      .setColor(process.env.CONFIRM_COLOR)
+      .setColor(process.env.CONFIRM_COLOR as ColorResolvable)
       .addFields([{ name: 'Timezone', value: timezoneOption }])
       .setFooter({
         text: interaction.guild.name,
-        iconURL: interaction.guild.iconURL({ dynamic: true })
+        iconURL: interaction.guild.iconURL() ?? ''
       });
 
     const theirBirthday = new Date(`${monthOption} ${dayOption} ${yearOption}`);
@@ -106,7 +116,7 @@ module.exports = {
 
         birthdayEmbed.setAuthor({
           name: `${interaction.user.username} set their birthday to ${theirBirthday.toLocaleDateString()}`,
-          iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+          iconURL: interaction.user.displayAvatarURL() ?? ''
         });
         logChannel.send({ embeds: [birthdayEmbed] });
 
@@ -125,15 +135,17 @@ module.exports = {
 
         birthdayEmbed.setAuthor({
           name: `${interaction.user.username} updated their birthday to ${theirBirthday.toLocaleDateString()}`,
-          iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+          iconURL: interaction.user.displayAvatarURL() ?? ''
         });
         logChannel.send({ embeds: [birthdayEmbed] });
 
         personalEmbed.setAuthor({
           name: `You have updated your birthday to ${theirBirthday.toLocaleDateString()}`
         });
-        return interaction.reply({ embeds: [personalEmbed], ephemeral: true });
+        interaction.reply({ embeds: [personalEmbed], ephemeral: true });
       }
     }).clone();
   }
 };
+
+export default birthdayCommand;

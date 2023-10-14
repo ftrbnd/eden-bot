@@ -1,7 +1,9 @@
-const { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } = require('discord.js');
+import { ColorResolvable, EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { SlashCommand } from '../lib/types';
+import sendErrorEmbed from '../lib/sendErrorEmbed';
 
-module.exports = {
-  data: new SlashCommandBuilder()
+const dmCommand: SlashCommand = {
+  command: new SlashCommandBuilder()
     .setName('dm')
     .setDescription('DM a message to a user')
     .addUserOption((option) => option.setName('user').setDescription('The user to message').setRequired(true))
@@ -11,17 +13,21 @@ module.exports = {
   async execute(interaction) {
     const targetUser = interaction.options.getUser('user');
     const messageToSend = interaction.options.getString('message');
+    if (!targetUser || !messageToSend) return console.log('User or Message not found');
 
     try {
       const dmChannel = await targetUser.createDM();
       await dmChannel.sendTyping();
       dmChannel.send(messageToSend);
     } catch (err) {
-      return console.error(err);
+      console.error(err);
+      return sendErrorEmbed(interaction, err);
     }
 
-    const sentEmbed = new EmbedBuilder().setDescription(`Sent **"${messageToSend}"** to ${targetUser}`).setColor(process.env.CONFIRM_COLOR);
+    const sentEmbed = new EmbedBuilder().setDescription(`Sent **"${messageToSend}"** to ${targetUser}`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
 
-    return interaction.reply({ embeds: [sentEmbed] });
+    await interaction.reply({ embeds: [sentEmbed] });
   }
 };
+
+export default dmCommand;

@@ -1,4 +1,4 @@
 node_modules
 .env
 TODO.txt
-src/commands/test.js
+src/commands/test.ts

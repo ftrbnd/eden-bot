@@ -1,9 +1,11 @@
-const fs = require('fs');
-const path = require('path');
-const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+import fs from 'fs';
+import path from 'path';
+import { ColorResolvable, EmbedBuilder, Message, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { SlashCommand } from '../lib/types';
+import readFilePath from '../lib/readFilePath';
 
-module.exports = {
-  data: new SlashCommandBuilder().setName('guessthesong').setDescription('Guess the song within 15 seconds!'),
+const guessTheSongCommand: SlashCommand = {
+  command: new SlashCommandBuilder().setName('guessthesong').setDescription('Guess the song within 15 seconds!').setDefaultMemberPermissions(PermissionFlagsBits.UseApplicationCommands),
 
   async execute(interaction) {
     const lyricsFolder = path.resolve(__dirname, '../lyrics');
@@ -28,8 +30,9 @@ module.exports = {
         break;
     }
 
-    let lyrics = await readFile(`${lyricsFolder}/${randomSongFile}`); // get the lyrics
-    lyrics = lyrics.filter((item) => item); // get rid of empty strings ''
+    let lyrics = await readFilePath(`${lyricsFolder}/${randomSongFile}`); // get the lyrics
+    if (!lyrics) return console.log('No lyrics found');
+    lyrics = lyrics.filter((item: string) => item); // get rid of empty strings ''
 
     let randomIndex = Math.floor(Math.random() * lyrics.length);
     if (randomIndex === lyrics.length - 1)
@@ -41,44 +44,44 @@ module.exports = {
     const guessTheSongEmbed = new EmbedBuilder()
       .setTitle(`Guess The Song`)
       .setThumbnail('https://i.imgur.com/rQmm1FM.png') // EDEN's logo
-      .setColor('fa57c1')
+      .setColor('fa57c1' as ColorResolvable)
       .setDescription(`${randomLyric}`)
       .setFooter({
-        text: interaction.guild.name,
-        iconURL: interaction.guild.iconURL({ dynamic: true })
+        text: interaction.guild?.name ?? 'Server Name',
+        iconURL: interaction.guild?.iconURL() ?? 'Server Icon'
       });
     interaction.reply({ embeds: [guessTheSongEmbed] });
 
-    const filter = (m) => m.content.toLowerCase().includes(songName.toLowerCase());
-    const collector = interaction.channel.createMessageCollector({ filter, time: 15_000 }); // collector stops checking after 15 seconds
+    const filter = (m: Message) => m.content.toLowerCase().includes(songName.toLowerCase());
+    const collector = interaction.channel?.createMessageCollector({ filter, time: 15_000 }); // collector stops checking after 15 seconds
 
-    collector.on('collect', (m) => {
+    collector?.on('collect', (m) => {
       const winnerEmbed = new EmbedBuilder()
         .setTitle(m.author.username + ' guessed the song!')
         .addFields([{ name: 'Song', value: songName }])
         .setDescription(`${randomLyric}`)
-        .setThumbnail(m.author.displayAvatarURL({ dynamic: true }))
-        .setColor(process.env.CONFIRM_COLOR)
+        .setThumbnail(m.author.displayAvatarURL())
+        .setColor(process.env.CONFIRM_COLOR as ColorResolvable)
         .setFooter({
-          text: m.guild.name,
-          iconURL: m.guild.iconURL({ dynamic: true })
+          text: m.guild?.name ?? 'Server Name',
+          iconURL: m.guild?.iconURL() ?? 'Server Icon'
         });
 
       m.reply({ embeds: [winnerEmbed] });
       collector.stop();
     });
 
-    collector.on('end', (collected) => {
+    collector?.on('end', (collected) => {
       if (collected.size == 0) {
         // if no correct song was guessed (collected by the MessageCollector)
         const timesUpEmbed = new EmbedBuilder()
           .setTitle('Nobody guessed the song within 15 seconds.')
           .addFields([{ name: 'Song', value: songName }])
           .setDescription(`${randomLyric}`)
-          .setColor(process.env.ERROR_COLOR)
+          .setColor(process.env.ERROR_COLOR as ColorResolvable)
           .setFooter({
-            text: interaction.guild.name,
-            iconURL: interaction.guild.iconURL({ dynamic: true })
+            text: interaction.guild?.name ?? 'Server Name',
+            iconURL: interaction.guild?.iconURL() ?? 'Server Icon'
           });
 
         interaction.followUp({ embeds: [timesUpEmbed] });
@@ -87,13 +90,4 @@ module.exports = {
   }
 };
 
-async function readFile(filename) {
-  try {
-    const contents = await fs.promises.readFile(filename, 'utf-8');
-    const arr = contents.split(/\r?\n/);
-
-    return arr;
-  } catch (err) {
-    console.error(err);
-  }
-}
+export default guessTheSongCommand;

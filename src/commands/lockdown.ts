@@ -1,7 +1,8 @@
-const { EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+import { EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits, ColorResolvable } from 'discord.js';
+import { SlashCommand } from '../lib/types';
 
-module.exports = {
-  data: new SlashCommandBuilder()
+const lockdownCommand: SlashCommand = {
+  command: new SlashCommandBuilder()
     .setName('lockdown')
     .setDescription('In the event of large amounts of spam')
     .addSubcommand((subcommand) => subcommand.setName('close').setDescription('Close all text channels'))
@@ -10,12 +11,12 @@ module.exports = {
 
   async execute(interaction) {
     const roles = [
-      interaction.guild.roles.cache.get('704966097434312766'), // server boosters
-      interaction.guild.roles.cache.get('702225844113899591'), // no future
-      interaction.guild.roles.cache.get('702225672147566642'), // vertigo
-      interaction.guild.roles.cache.get('702226305164509185'), // ityttmom
-      interaction.guild.roles.cache.get('702226350324318299'), // End Credits
-      interaction.guild.roles.cache.get('655655072885374987')
+      interaction.guild?.roles.cache.get('704966097434312766'), // server boosters
+      interaction.guild?.roles.cache.get('702225844113899591'), // no future
+      interaction.guild?.roles.cache.get('702225672147566642'), // vertigo
+      interaction.guild?.roles.cache.get('702226305164509185'), // ityttmom
+      interaction.guild?.roles.cache.get('702226350324318299'), // End Credits
+      interaction.guild?.roles.cache.get('655655072885374987')
     ]; // @everyone
 
     if (interaction.options.getSubcommand() === 'close') {
@@ -35,9 +36,9 @@ module.exports = {
         PermissionFlagsBits.RequestToSpeak
       ];
 
-      roles.forEach((role) => role.setPermissions(removedPermissions));
+      roles.forEach((role) => role?.setPermissions(removedPermissions));
 
-      const confirmEmbed = new EmbedBuilder().setDescription(`**${interaction.guild.name}** is now on lockdown.`).setColor(process.env.ERROR_COLOR);
+      const confirmEmbed = new EmbedBuilder().setDescription(`**${interaction.guild?.name}** is now on lockdown.`).setColor(process.env.ERROR_COLOR as ColorResolvable);
       interaction.reply({ embeds: [confirmEmbed] });
     } else if (interaction.options.getSubcommand() === 'open') {
       // Open all text channels
@@ -46,14 +47,14 @@ module.exports = {
         PermissionFlagsBits.CreateInstantInvite,
         PermissionFlagsBits.ChangeNickname,
         PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.UsePublicThreads,
+        PermissionFlagsBits.SendMessagesInThreads,
         PermissionFlagsBits.EmbedLinks,
         PermissionFlagsBits.AttachFiles,
         PermissionFlagsBits.AddReactions,
         PermissionFlagsBits.UseExternalEmojis,
         PermissionFlagsBits.UseExternalStickers,
         PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.UseSlashCommands,
+        PermissionFlagsBits.UseApplicationCommands,
         PermissionFlagsBits.Connect,
         PermissionFlagsBits.Speak,
         PermissionFlagsBits.Stream,
@@ -62,11 +63,13 @@ module.exports = {
       ];
 
       roles.forEach((role) => {
-        role.setPermissions(defaultPermissions);
+        role?.setPermissions(defaultPermissions);
       });
 
-      const confirmEmbed = new EmbedBuilder().setDescription(`**${interaction.guild.name}** is now open!`).setColor(process.env.CONFIRM_COLOR);
+      const confirmEmbed = new EmbedBuilder().setDescription(`**${interaction.guild?.name}** is now open!`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
       interaction.reply({ embeds: [confirmEmbed] });
     }
   }
 };
+
+export default lockdownCommand;

@@ -1,8 +1,9 @@
-const { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } = require('discord.js');
-const User = require('../schemas/UserSchema');
+import { ColorResolvable, EmbedBuilder, GuildMember, PermissionFlagsBits, SlashCommandBuilder, TextChannel } from 'discord.js';
+import User, { UserDocument } from '../schemas/UserSchema';
+import { SlashCommand } from '../lib/types';
 
-module.exports = {
-  data: new SlashCommandBuilder()
+const muteCommand: SlashCommand = {
+  command: new SlashCommandBuilder()
     .setName('mute')
     .setDescription('Mute a user by giving them the Muted role')
     .addUserOption((option) => option.setName('user').setDescription('The user to be muted').setRequired(true))
@@ -12,33 +13,34 @@ module.exports = {
   async execute(interaction) {
     const userToMute = interaction.options.getUser('user');
     const reasonForMute = interaction.options.getString('reason');
+    if (!userToMute || !reasonForMute) return console.log('User or Reason not found');
 
-    const modChannel = interaction.guild.channels.cache.get(process.env.MODERATORS_CHANNEL_ID);
+    const modChannel = <TextChannel>interaction.guild?.channels.cache.get(process.env.MODERATORS_CHANNEL_ID!);
     if (!modChannel) return;
 
     const oneWeek = new Date();
     oneWeek.setDate(oneWeek.getDate() + 7);
-    await User.findOne({ discordId: userToMute.id }, (err, data) => {
+    await User.findOne({ discordId: userToMute?.id }, (err: any, data: UserDocument) => {
       if (err) return console.error(err);
 
       if (!data) {
         // if the user isn't already in the database, add their data
         User.create({
-          discordId: userToMute.id,
-          username: userToMute.username,
+          discordId: userToMute?.id,
+          username: userToMute?.username,
           muteEnd: oneWeek
         }).catch((err) => console.error(err));
       } else {
         // if they already were in the database, simply update and save
         data.muteEnd = oneWeek;
-        data.username = userToMute.username;
+        data.username = userToMute?.username;
         data.save();
       }
     }).clone();
 
     try {
-      userToMuteMember = interaction.guild.members.cache.get(`${userToMute.id}`);
-      userToMuteMember.roles.set([process.env.MUTE_ROLE_ID]); // Mute role
+      const userToMuteMember = <GuildMember>interaction.guild?.members.cache.get(`${userToMute.id}`);
+      userToMuteMember.roles.set([process.env.MUTE_ROLE_ID!]); // Mute role
     } catch (err) {
       return console.error(err);
     }
@@ -51,25 +53,25 @@ module.exports = {
         { name: 'Reason: ', value: reasonForMute },
         { name: 'Mute Ends: ', value: oneWeek.toDateString() }
       ])
-      .setColor('000001')
-      .setThumbnail(userToMute.displayAvatarURL({ dynamic: true }))
+      .setColor('000001' as ColorResolvable)
+      .setThumbnail(userToMute.displayAvatarURL())
       .setFooter({
-        text: interaction.guild.name,
-        iconURL: interaction.guild.iconURL({ dynamic: true })
+        text: interaction.guild?.name ?? 'Server Name',
+        iconURL: interaction.guild?.iconURL() ?? 'Server Name'
       })
       .setTimestamp();
     modChannel.send({ embeds: [logEmbed] });
 
     const muteEmbed = new EmbedBuilder()
-      .setTitle(`You were muted in **${interaction.guild.name}** for a week.`)
+      .setTitle(`You were muted in **${interaction.guild?.name}** for a week.`)
       .addFields([
         { name: 'Reason: ', value: reasonForMute },
         { name: 'Mute Ends: ', value: oneWeek.toDateString() }
       ])
-      .setColor('000001')
+      .setColor('000001' as ColorResolvable)
       .setFooter({
-        text: interaction.guild.name,
-        iconURL: interaction.guild.iconURL({ dynamic: true })
+        text: interaction.guild?.name ?? 'Server Name',
+        iconURL: interaction.guild?.iconURL() ?? 'Server Name'
       })
       .setTimestamp();
 
@@ -79,7 +81,9 @@ module.exports = {
       return console.error(err);
     }
 
-    const mutedEmbed = new EmbedBuilder().setDescription(`${userToMute} was muted.`).setColor(process.env.CONFIRM_COLOR);
+    const mutedEmbed = new EmbedBuilder().setDescription(`${userToMute} was muted.`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
     interaction.reply({ embeds: [mutedEmbed] });
   }
 };
+
+export default muteCommand;

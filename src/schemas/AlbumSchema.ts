@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export interface AlbumDocument {
+export interface AlbumDocument extends mongoose.Document {
   _id?: string;
   album: string;
   tracks: string[];

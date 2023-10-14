@@ -1,8 +1,9 @@
-const { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const Giveaway = require('../schemas/GiveawaySchema');
+import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ColorResolvable, ComponentEmojiResolvable, TextChannel } from 'discord.js';
+import Giveaway from '../schemas/GiveawaySchema';
+import { SlashCommand } from '../lib/types';
 
-module.exports = {
-  data: new SlashCommandBuilder()
+const giveawayCommand: SlashCommand = {
+  command: new SlashCommandBuilder()
     .setName('giveaway')
     .setDescription('Run a giveaway')
     .addSubcommand((subcommand) =>
@@ -23,11 +24,11 @@ module.exports = {
         .setDescription('End a currently running giveaway')
         .addStringOption((option) => option.setName('id').setDescription('The giveaway id in the database').setRequired(true))
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // only the Server Moderator role can use this command
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // only the Server Moderator role can use this
 
   async execute(interaction) {
-    const announcementChannel = interaction.guild.channels.cache.get(process.env.ANNOUNCEMENTS_CHANNEL_ID);
-
+    const announcementChannel = <TextChannel>interaction.guild?.channels.cache.get(process.env.ANNOUNCEMENTS_CHANNEL_ID!);
+    if (!announcementChannel) return console.log('Announcement channel not found');
     if (interaction.options.getSubcommand() === 'start') {
       const prize = interaction.options.getString('prize');
       const description = interaction.options.getString('description');
@@ -37,6 +38,7 @@ module.exports = {
 
       const unit = interaction.options.getString('unit');
       const amount = interaction.options.getInteger('amount');
+      if (!unit || !amount) return console.log('Unit and/or Amount not found');
       switch (unit) {
         case 'minutes':
           endDate.setMinutes(endDate.getMinutes() + amount);
@@ -57,11 +59,11 @@ module.exports = {
         imageURL
       });
 
-      giveaway.save(function (err) {
+      giveaway.save(function (err: any) {
         if (err) {
-          const errEmbed = new EmbedBuilder().setDescription(`An error occurred, please try againE`).setColor(process.env.ERROR_COLOR);
+          const errEmbed = new EmbedBuilder().setDescription(`An error occurred, please try againE`).setColor(process.env.ERROR_COLOR as ColorResolvable);
           interaction.reply({ embeds: [errEmbed] });
-          return console.error(err);
+          return console.log(err);
         }
 
         console.log(`Saved ${prize} giveaway to database!`);
@@ -70,12 +72,15 @@ module.exports = {
           .setTitle(`Giveaway: ${prize}`)
           .setDescription(description)
           .addFields([{ name: 'End Date', value: `<t:${timestamp}>` }])
-          .setColor(process.env.GIVEAWAY_COLOR);
+          .setColor(process.env.GIVEAWAY_COLOR as ColorResolvable);
         if (imageURL) giveawayEmbed.setThumbnail(imageURL);
 
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(giveaway.id).setStyle(ButtonStyle.Primary).setEmoji(process.env.GIVEAWAY_EMOJI_ID),
-          new ButtonBuilder().setLabel('Subscribe').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${interaction.guild.id}/role-subscriptions`)
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(giveaway.id)
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji(process.env.GIVEAWAY_EMOJI_ID as ComponentEmojiResolvable),
+          new ButtonBuilder().setLabel('Subscribe').setStyle(ButtonStyle.Link).setURL(`https://discord.com/channels/${interaction.guild?.id}/role-subscriptions`)
         );
 
         announcementChannel.send({ embeds: [giveawayEmbed], components: [row] });
@@ -83,7 +88,7 @@ module.exports = {
         const confirmEmbed = new EmbedBuilder()
           .setDescription(`Started giveaway for **${prize}** in ${announcementChannel}, ends in ${amount} ${amount == 1 ? unit.substring(0, unit.length - 1) : unit}`)
           .addFields([{ name: 'End Date', value: `<t:${timestamp}>` }])
-          .setColor(process.env.CONFIRM_COLOR);
+          .setColor(process.env.CONFIRM_COLOR as ColorResolvable);
 
         interaction.reply({ embeds: [confirmEmbed] });
       });
@@ -92,3 +97,5 @@ module.exports = {
     }
   }
 };
+
+export default giveawayCommand;

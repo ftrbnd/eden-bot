@@ -1,7 +1,8 @@
-const { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, ChannelType } = require('discord.js');
+import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, ChannelType, TextChannel, ColorResolvable } from 'discord.js';
+import { SlashCommand } from '../lib/types';
 
-module.exports = {
-  data: new SlashCommandBuilder()
+const sayCommand: SlashCommand = {
+  command: new SlashCommandBuilder()
     .setName('say')
     .setDescription('Make the bot say something')
     .addChannelOption((option) =>
@@ -11,12 +12,16 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // only the Server Moderator role can use this command
 
   async execute(interaction) {
-    const targetChannel = interaction.options.getChannel('channel');
+    const targetChannel = <TextChannel>interaction.options.getChannel('channel');
     const messageToSend = interaction.options.getString('message');
+    if (!targetChannel || !messageToSend) return console.log('Channel or Message not found');
+
     targetChannel.send(messageToSend);
 
-    const sentEmbed = new EmbedBuilder().setDescription(`Said **"${messageToSend}"** in ${targetChannel}`).setColor(process.env.CONFIRM_COLOR);
+    const sentEmbed = new EmbedBuilder().setDescription(`Said **"${messageToSend}"** in ${targetChannel}`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
 
     interaction.reply({ embeds: [sentEmbed] });
   }
 };
+
+export default sayCommand;

@@ -1,11 +1,11 @@
-const fs = require('fs');
-const path = require('path');
+import path from 'path';
+import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, GuildMember, ColorResolvable, TextChannel, ButtonBuilder } from 'discord.js';
+import SurvivorRound, { SurvivorRoundDocument } from '../schemas/SurvivorRoundSchema';
+import { SlashCommand } from '../lib/types';
+import readFilePath from '../lib/readFilePath';
 
-const { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
-const SurvivorRound = require('../schemas/SurvivorRoundSchema');
-
-module.exports = {
-  data: new SlashCommandBuilder()
+const survivorMenuCommand: SlashCommand = {
+  command: new SlashCommandBuilder()
     .setName('survivormenu')
     .setDescription('New version of Survivor with menus and hidden votes')
     .addSubcommand((subcommand) =>
@@ -49,39 +49,44 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // only the Server Moderator role can use this command
 
   async execute(interaction) {
-    if (interaction.member.roles.cache.has(process.env.MODERATORS_ROLE_ID)) {
+    const member = <GuildMember>interaction.member;
+    if (member.roles.cache.has(process.env.MODERATORS_ROLE_ID!)) {
       // Moderator role
-      const survivorChannel = interaction.guild.channels.cache.find((channel) => channel.name === process.env.SURVIVOR_CHANNEL_NAME);
+      const survivorChannel = <TextChannel>interaction.guild?.channels.cache.find((channel) => channel.name === process.env.SURVIVOR_CHANNEL_NAME);
       if (!survivorChannel) {
-        const errEmbed = new EmbedBuilder().setDescription(`There is no channel named **${process.env.SURVIVOR_CHANNEL_NAME}** - please create one!`).setColor(process.env.ERROR_COLOR);
+        const errEmbed = new EmbedBuilder()
+          .setDescription(`There is no channel named **${process.env.SURVIVOR_CHANNEL_NAME}** - please create one!`)
+          .setColor(process.env.ERROR_COLOR as ColorResolvable);
         return interaction.reply({ embeds: [errEmbed] });
       }
 
       const albumName = interaction.options.getString('album');
       const albumsFolder = path.resolve(__dirname, '../albums');
-      let albumTracks = await readFile(`${albumsFolder}/${albumName}.txt`); // get all of the album tracks
-      const embedColor = `${albumTracks.pop()}`;
-      const albumCover = albumTracks.pop();
+      let albumTracks = await readFilePath(`${albumsFolder}/${albumName}.txt`); // get all of the album tracks
+      if (!albumTracks || !albumTracks.length) return console.log('Album tracks not found');
+      const embedColor = `${albumTracks?.pop()}`;
+      const albumCover = albumTracks?.pop();
 
       if (interaction.options.getSubcommand() === 'standings') {
         // get current votes
-        await SurvivorRound.findOne({ album: albumName }, (err, data) => {
+        await SurvivorRound.findOne({ album: albumName }, (err: any, data: SurvivorRoundDocument) => {
           if (err) {
-            const errEmbed = new EmbedBuilder().setDescription('An error occured.').setColor(process.env.ERROR_COLOR);
+            const errEmbed = new EmbedBuilder().setDescription('An error occured.').setColor(process.env.ERROR_COLOR as ColorResolvable);
             interaction.reply({ embeds: [errEmbed] });
             return console.log(err);
           }
 
           if (!data) {
-            const errEmbed = new EmbedBuilder().setDescription(`No data exists for **${albumName}**`).setColor(process.env.ERROR_COLOR);
+            const errEmbed = new EmbedBuilder().setDescription(`No data exists for **${albumName}**`).setColor(process.env.ERROR_COLOR as ColorResolvable);
             interaction.reply({ embeds: [errEmbed] });
             return console.log(`No data exists for ${albumName}`);
           } else {
             // if data exists, get votes
             let totalVotes = 0;
 
-            const songVotes = [];
-            data.votes.forEach((userIds, song) => {
+            const songVotes: string[] = [];
+            // declared votes field as {} in schema, but should work
+            data.votes.forEach((userIds: string[], song: string) => {
               // find the song with the most votes
               if (data.tracks.includes(song)) {
                 // if the song hasn't been eliminated yet
@@ -93,8 +98,8 @@ module.exports = {
             const standingsEmbed = new EmbedBuilder()
               .setTitle(`**${albumName}** Survivor - Round ${data.roundNumber} Standings`)
               .setDescription(songVotes.join('\n\n'))
-              .setThumbnail(albumCover)
-              .setColor(embedColor)
+              .setThumbnail(albumCover ?? 'Album Cover')
+              .setColor(embedColor as ColorResolvable)
               .setFooter({
                 text: `${totalVotes} total votes`
               });
@@ -104,22 +109,25 @@ module.exports = {
         }).clone();
       } else if (interaction.options.getSubcommand() === 'round') {
         if (interaction.channel == survivorChannel) {
-          const errEmbed = new EmbedBuilder().setDescription(`Please use this command in ${interaction.guild.channels.cache.get(process.env.COMMANDS_CHANNEL_ID)}`).setColor(process.env.ERROR_COLOR);
+          const errEmbed = new EmbedBuilder()
+            .setDescription(`Please use this command in ${interaction.guild?.channels.cache.get(process.env.COMMANDS_CHANNEL_ID!)}`)
+            .setColor(process.env.ERROR_COLOR as ColorResolvable);
           return interaction.reply({ embeds: [errEmbed], ephemeral: true });
         }
 
-        const survivorRole = interaction.guild.roles.cache.get(process.env.SURVIVOR_ROLE_ID);
-        let roundNumber, survivorEmbed, row;
+        const survivorRole = interaction.guild?.roles.cache.get(process.env.SURVIVOR_ROLE_ID!);
+        let roundNumber: number, survivorEmbed, row;
 
         // update the database
-        await SurvivorRound.findOne({ album: albumName }, (err, data) => {
+        await SurvivorRound.findOne({ album: albumName }, (err: any, data: SurvivorRoundDocument) => {
           if (err) {
-            const errEmbed = new EmbedBuilder().setDescription('An error occured.').setColor(process.env.ERROR_COLOR);
+            const errEmbed = new EmbedBuilder().setDescription('An error occured.').setColor(process.env.ERROR_COLOR as ColorResolvable);
             interaction.reply({ embeds: [errEmbed] });
             return console.log(err);
           }
 
           const songVotesMap = new Map(); // empty map with empty vote arrays for new rounds
+          if (!albumTracks || !albumTracks.length) return console.log('Album tracks not found');
           for (let track of albumTracks) {
             if (track == '$treams')
               // Mongoose maps do not support keys that start with "$"
@@ -143,7 +151,7 @@ module.exports = {
             let mostVotedSong,
               max = 0,
               totalVotes = 0;
-            data.votes.forEach((userIds, song) => {
+            data.votes.forEach((userIds: string[], song: string) => {
               // find the song with the most votes
               if (userIds.length > max) {
                 max = userIds.length;
@@ -156,8 +164,8 @@ module.exports = {
               // Mongoose maps do not support keys that start with "$"
               mostVotedSong = '$treams';
 
-            data.tracks.pull(mostVotedSong); // remove the most voted song from the database
-            data.standings.push(mostVotedSong); // then add it to the standings - will reverse at the end
+            data.tracks.pull(mostVotedSong ?? 'Most voted song'); // remove the most voted song from the database
+            data.standings.push(mostVotedSong ?? 'Most voted song'); // then add it to the standings - will reverse at the end
             data.votes = songVotesMap; // the loser song will still remain but this doesn't affect anything since it won't appear in voting list
 
             // compute the round number
@@ -196,7 +204,7 @@ module.exports = {
               for (let i = 1; i < standings.length; i++) {
                 if (numberEmojis[i].length === 18) {
                   // length of a Discord emoji id
-                  const emoji = interaction.guild.emojis.cache.get(numberEmojis[i]);
+                  const emoji = interaction.guild?.emojis.cache.get(numberEmojis[i]);
                   standings[i] = `${emoji} ${standings[i]}`;
                 } else {
                   standings[i] = `${numberEmojis[i]} ${standings[i]}`;
@@ -206,11 +214,11 @@ module.exports = {
               survivorEmbed = new EmbedBuilder()
                 .setTitle(`**${albumName}** Survivor - Winner!`)
                 .setDescription(standings.join('\n\n'))
-                .setThumbnail(albumCover)
-                .setColor(embedColor)
+                .setThumbnail(albumCover ?? 'Album cover')
+                .setColor(embedColor as ColorResolvable)
                 .setFooter({
                   text: `Runner-up: ${mostVotedSong} (${max} votes)`,
-                  iconURL: interaction.guild.iconURL({ dynamic: true })
+                  iconURL: interaction.guild?.iconURL() ?? 'Server Icon'
                 });
 
               survivorChannel.send({ content: `${survivorRole}`, embeds: [survivorEmbed] }).then((message) => {
@@ -220,14 +228,14 @@ module.exports = {
               });
 
               data.tracks = albumTracks; // reset the database tracks
-              data.votes.forEach((userIds) => {
+              data.votes.forEach((userIds: string[]) => {
                 userIds = [];
               }); // clear all votes for next year's round
               data.standings = []; // reset setandings
             } else {
               // compute the next round
               // create the list of surviving songs for the next round embed description
-              const tracksListDescription = [];
+              const tracksListDescription: string[] = [];
               data.tracks.forEach((track) => {
                 tracksListDescription.push(`${track}`);
               });
@@ -235,8 +243,8 @@ module.exports = {
               survivorEmbed = new EmbedBuilder()
                 .setTitle(`**${albumName}** Survivor - Round ${roundNumber}`)
                 .setDescription(tracksListDescription.join('\n\n'))
-                .setThumbnail(albumCover)
-                .setColor(embedColor);
+                .setThumbnail(albumCover ?? 'Album cover')
+                .setColor(embedColor as ColorResolvable);
 
               // if this isn't the first round then we have a song that was voted out
               if (mostVotedSong) {
@@ -255,7 +263,9 @@ module.exports = {
                 options.push(obj);
               }
 
-              row = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('select').setPlaceholder('Vote for your LEAST favorite song!').addOptions(options));
+              row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                new StringSelectMenuBuilder().setCustomId('select').setPlaceholder('Vote for your LEAST favorite song!').addOptions(options)
+              );
 
               survivorChannel.send({ content: `${survivorRole}`, embeds: [survivorEmbed], components: [row] }).then((message) => {
                 // update the database with the newest round numbers and latest message id for reaction purposes
@@ -267,24 +277,15 @@ module.exports = {
           }
 
           const description = roundNumber > 0 ? `✅ ${survivorChannel}` : `Reset **${albumName}** document in database - use **/survivormenu** again`;
-          const confirmEmbed = new EmbedBuilder().setColor(embedColor).setDescription(description);
+          const confirmEmbed = new EmbedBuilder().setColor(embedColor as ColorResolvable).setDescription(description);
           return interaction.reply({ embeds: [confirmEmbed] });
         }).clone();
       }
     } else {
-      const permsEmbed = new EmbedBuilder().setDescription('You do not have permission to use this command.').setColor(process.env.ERROR_COLOR);
+      const permsEmbed = new EmbedBuilder().setDescription('You do not have permission to use this command.').setColor(process.env.ERROR_COLOR as ColorResolvable);
       return interaction.reply({ embeds: [permsEmbed], ephemeral: true });
     }
   }
 };
 
-async function readFile(filename) {
-  try {
-    const contents = await fs.promises.readFile(filename, 'utf-8');
-    const arr = contents.split(/\r?\n/);
-
-    return arr;
-  } catch (err) {
-    console.log(err);
-  }
-}
+export default survivorMenuCommand;

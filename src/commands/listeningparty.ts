@@ -1,7 +1,21 @@
-const { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, ChannelType, GuildScheduledEventPrivacyLevel, GuildScheduledEventEntityType } = require('discord.js');
+import {
+  EmbedBuilder,
+  PermissionFlagsBits,
+  SlashCommandBuilder,
+  ChannelType,
+  GuildScheduledEventPrivacyLevel,
+  GuildScheduledEventEntityType,
+  ColorResolvable,
+  CategoryChannel,
+  StageChannel,
+  Message,
+  TextChannel,
+  GuildMember
+} from 'discord.js';
+import { SlashCommand } from '../lib/types';
 
-module.exports = {
-  data: new SlashCommandBuilder()
+const listeningPartyCommand: SlashCommand = {
+  command: new SlashCommandBuilder()
     .setName('listeningparty')
     .setDescription('Open a listening party chat and stage channel')
     .addSubcommand((subcommand) =>
@@ -34,19 +48,19 @@ module.exports = {
     )
     .addSubcommand((subcommand) => subcommand.setName('close').setDescription('Make the channels private'))
     .addSubcommand((subcommand) => subcommand.setName('archive').setDescription('Delete the Stage channel and move the text channel to the Archived category'))
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // only the Server Moderator role can use this command
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // only the Server Moderator role can use this
 
   async execute(interaction) {
     if (interaction.options.getSubcommand() === 'create') {
       const listeningPartyName = interaction.options.getString('name');
 
-      const categoryChannel = await interaction.guild.channels.create({
+      const categoryChannel = await interaction.guild?.channels.create({
         name: 'Listening Party',
         type: ChannelType.GuildCategory,
         position: 2,
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id,
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
@@ -55,28 +69,29 @@ module.exports = {
           }
         ]
       });
+      if (!categoryChannel) return console.log('Created category channel not found');
 
       await categoryChannel.children.create({
         name: 'listening party chat',
         type: ChannelType.GuildText,
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
-            id: interaction.guild.roles.cache.find((role) => role.name === 'Bot').id, // all other bots
+            id: interaction.guild?.roles.cache.find((role) => role.name === 'Bot')?.id ?? 'fakeid', // all other bots
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
-            id: interaction.client.user.id, // this bot itself
+            id: interaction.client.user.id ?? 'fakeid', // this bot itself
             allow: [PermissionFlagsBits.ViewChannel]
           }
         ]
       });
 
       const stageChannel = await categoryChannel.children.create({
-        name: listeningPartyName,
+        name: listeningPartyName ?? 'Listening Party',
         type: ChannelType.GuildStageVoice
       });
 
@@ -85,7 +100,7 @@ module.exports = {
         stageChannel.edit({
           permissionOverwrites: [
             {
-              id: interaction.guild.roles.everyone.id,
+              id: interaction.guild?.roles.everyone.id ?? 'fakeid',
               deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect]
             },
             {
@@ -99,7 +114,7 @@ module.exports = {
         stageChannel.edit({
           permissionOverwrites: [
             {
-              id: interaction.guild.roles.everyone.id,
+              id: interaction.guild?.roles.everyone.id ?? 'fakeid',
               allow: [PermissionFlagsBits.ViewChannel],
               deny: [PermissionFlagsBits.Connect]
             },
@@ -111,29 +126,33 @@ module.exports = {
         });
       }
 
-      const confirmEmbed = new EmbedBuilder().setDescription(`**${listeningPartyName}** channels have been created!`).setColor(process.env.CONFIRM_COLOR);
+      const confirmEmbed = new EmbedBuilder().setDescription(`**${listeningPartyName}** channels have been created!`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
       return interaction.reply({ embeds: [confirmEmbed] });
     } else if (interaction.options.getSubcommand() === 'preview') {
-      const categoryChannel = await interaction.guild.channels.cache.find((channel) => channel.name === 'Listening Party');
+      const categoryChannel = <CategoryChannel>interaction.guild?.channels.cache.find((channel) => channel.name === 'Listening Party');
+      if (!categoryChannel) return console.log('Category channel not found');
+
       categoryChannel.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             allow: [PermissionFlagsBits.ViewChannel]
           }
         ]
       });
 
-      const listeningPartyChat = await categoryChannel.children.cache.find((channel) => channel.name === 'listening-party-chat');
+      const listeningPartyChat = categoryChannel.children.cache.find((channel) => channel.name === 'listening-party-chat');
+      if (!listeningPartyChat) return console.log('Listening party chat not found');
+
       listeningPartyChat.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             allow: [PermissionFlagsBits.ViewChannel],
             deny: [PermissionFlagsBits.SendMessages]
           },
           {
-            id: interaction.guild.roles.cache.find((role) => role.name === 'Bot').id,
+            id: interaction.guild?.roles.cache.find((role) => role.name === 'Bot')?.id ?? 'afkeid',
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
@@ -143,11 +162,13 @@ module.exports = {
         ]
       });
 
-      const stageChannel = await categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
+      const stageChannel = <StageChannel>categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
+      if (!stageChannel) return console.log('Stage channel not found');
+
       stageChannel.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             allow: [PermissionFlagsBits.ViewChannel],
             deny: [PermissionFlagsBits.Connect]
           },
@@ -159,15 +180,16 @@ module.exports = {
       });
       stageChannel.setTopic(`Listening to ${stageChannel.name}!`);
 
-      const confirmEmbed = new EmbedBuilder().setDescription(`**${stageChannel.name}** channels are now public but locked.`).setColor(process.env.CONFIRM_COLOR);
+      const confirmEmbed = new EmbedBuilder().setDescription(`**${stageChannel.name}** channels are now public but locked.`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
       interaction.reply({ embeds: [confirmEmbed] });
     } else if (interaction.options.getSubcommand() === 'announce') {
       const description = interaction.options.getString('event-description');
+      if (!description) return console.log('Description not found');
 
       // check if the Stage channel has been created yet
-      const stageChannel = await interaction.guild.channels.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
+      const stageChannel = <StageChannel>interaction.guild?.channels.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
       if (!stageChannel) {
-        const errEmbed = new EmbedBuilder().setDescription('Please use **/listeningparty create** before using this command').setColor(process.env.ERROR_COLOR);
+        const errEmbed = new EmbedBuilder().setDescription('Please use **/listeningparty create** before using this command').setColor(process.env.ERROR_COLOR as ColorResolvable);
         return interaction.reply({ embeds: [errEmbed] });
       }
 
@@ -175,20 +197,22 @@ module.exports = {
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       try {
-        var scheduledEvent = await interaction.guild.scheduledEvents.create({
+        var scheduledEvent = await interaction.guild?.scheduledEvents.create({
           name: `${stageChannel.name} Listening Party`,
           scheduledStartTime: tomorrow,
           privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
           entityType: GuildScheduledEventEntityType.StageInstance,
-          description: description,
+          description,
           channel: stageChannel
         });
       } catch (err) {
         return console.error(err);
       }
 
-      const confirmEmbed = new EmbedBuilder().setDescription(`The **${stageChannel.name}** Event has been created!`).setColor(process.env.CONFIRM_COLOR);
-      const announcementEmbed = new EmbedBuilder().setDescription(`Now, please enter the message that will be posted in **#announcements** without mentioning @everyone`).setColor('fffb25');
+      const confirmEmbed = new EmbedBuilder().setDescription(`The **${stageChannel.name}** Event has been created!`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
+      const announcementEmbed = new EmbedBuilder()
+        .setDescription(`Now, please enter the message that will be posted in **#announcements** without mentioning @everyone`)
+        .setColor('fffb25' as ColorResolvable);
 
       // once created, ask for the announcement text
       interaction.reply({ embeds: [confirmEmbed, announcementEmbed] });
@@ -196,64 +220,68 @@ module.exports = {
       // maybe: with the announcement text, add an option for the pic url,
       //      and set the event's banner to that img
       // also append the event url to the final announcement
-      const filter = (m) => m.author === interaction.user;
-      const collector = interaction.channel.createMessageCollector({ filter, time: 180000 }); // one minute to collect
+      const filter = (m: Message) => m.author === interaction.user;
+      const collector = interaction.channel?.createMessageCollector({ filter, time: 180000 }); // one minute to collect
 
-      collector.on('collect', (m) => {
-        const announcementText = `${m.content} @everyone ${scheduledEvent.url}`;
-        const announcementChannel = interaction.guild.channels.cache.get(process.env.ANNOUNCEMENTS_CHANNEL_ID);
+      collector?.on('collect', (m) => {
+        const announcementText = `${m.content} @everyone ${scheduledEvent?.url}`;
+        const announcementChannel = <TextChannel>interaction.guild?.channels.cache.get(process.env.ANNOUNCEMENTS_CHANNEL_ID!);
 
-        announcementChannel.send({ content: announcementText });
+        announcementChannel?.send({ content: announcementText });
 
         collector.stop();
       });
 
-      collector.on('end', (collected) => {
+      collector?.on('end', (collected) => {
         if (collected.size === 0) {
           // if no message was entered
           const couldntFindEmbed = new EmbedBuilder()
             .setDescription(`You did not type within 3 minutes, please use the **/say** command to post the announcement.`)
-            .setColor(process.env.ERROR_COLOR)
+            .setColor(process.env.ERROR_COLOR as ColorResolvable)
             .setFooter({
-              text: interaction.guild.name,
-              iconURL: interaction.guild.iconURL({ dynamic: true })
+              text: interaction.guild?.name ?? 'Server Name',
+              iconURL: interaction.guild?.iconURL() ?? 'Server Icon'
             });
           interaction.followUp({ embeds: [couldntFindEmbed], ephemeral: true });
         } else {
-          const announcedEmbed = new EmbedBuilder().setDescription(`The announcement was sent!`).setColor(process.env.CONFIRM_COLOR);
-          const editDateEmbed = new EmbedBuilder().setDescription(`Now manually edit the Event's start time.`).setColor('fffb25');
+          const announcedEmbed = new EmbedBuilder().setDescription(`The announcement was sent!`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
+          const editDateEmbed = new EmbedBuilder().setDescription(`Now manually edit the Event's start time.`).setColor('fffb25' as ColorResolvable);
           interaction.followUp({ embeds: [announcedEmbed, editDateEmbed] });
         }
       });
     } else if (interaction.options.getSubcommand() === 'start') {
       // on joining the stage channel, change the permissions so only admins can use the music commands
-      const categoryChannel = await interaction.guild.channels.cache.find((channel) => channel.name === 'Listening Party');
+      const categoryChannel = <CategoryChannel>interaction.guild?.channels.cache.find((channel) => channel.name === 'Listening Party');
       if (!categoryChannel) {
-        const errEmbed = new EmbedBuilder().setDescription(`Listening party channels don't exist!`).setColor(process.env.ERROR_COLOR);
+        const errEmbed = new EmbedBuilder().setDescription(`Listening party channels don't exist!`).setColor(process.env.ERROR_COLOR as ColorResolvable);
         return interaction.reply({ embeds: [errEmbed] });
       }
 
-      const stageChannel = await categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
-      const voiceChannel = interaction.member.voice.channel;
+      const stageChannel = <StageChannel>categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
+      const member = <GuildMember>interaction.member;
+      const voiceChannel = member.voice.channel;
 
       if (voiceChannel === stageChannel) {
         // if the user is in the Stage channel
-        await interaction.client.DisTube.voices.join(stageChannel); // get the bot to join the Stage
+        await interaction.client.musicPlayer.voices.join(stageChannel); // get the bot to join the Stage
 
-        interaction.guild.members.me.voice.setSuppressed(false); // set bot as Stage speaker
+        interaction.guild?.members.me?.voice.setSuppressed(false); // set bot as Stage speaker
 
         const playlist = interaction.options.getString('playlist'); // get the playlist
         const topic = interaction.options.getString('topic');
+        if (!playlist || !topic) return console.log('Playlist or Topic not found');
 
-        await interaction.client.DisTube.play(stageChannel, playlist, {
-          // play the playlist
-          member: interaction.member,
-          textChannel: interaction.channel
-        }).catch((err) => {
-          console.error(err);
-          const errEmbed = new EmbedBuilder().setDescription(`An error occurred in /play.`).setColor(process.env.ERROR_COLOR);
-          return interaction.reply({ embeds: [errEmbed] });
-        });
+        await interaction.client.musicPlayer
+          .play(stageChannel, playlist, {
+            // play the playlist
+            member: <GuildMember>interaction.member,
+            textChannel: <TextChannel>interaction.channel
+          })
+          .catch((err) => {
+            console.error(err);
+            const errEmbed = new EmbedBuilder().setDescription(`An error occurred in /play.`).setColor(process.env.ERROR_COLOR as ColorResolvable);
+            return interaction.reply({ embeds: [errEmbed] });
+          });
 
         if (!stageChannel.stageInstance) {
           // start the Stage if it doesn't exist
@@ -263,35 +291,38 @@ module.exports = {
           });
         }
 
-        const joinEmbed = new EmbedBuilder().setDescription(`Joined **${voiceChannel.name}** and queued your playlist!`).setColor(process.env.MUSIC_COLOR).setFooter({
-          text: 'Use /play to add more songs'
-        });
+        const joinEmbed = new EmbedBuilder()
+          .setDescription(`Joined **${voiceChannel.name}** and queued your playlist!`)
+          .setColor(process.env.MUSIC_COLOR as ColorResolvable)
+          .setFooter({
+            text: 'Use /play to add more songs'
+          });
 
         interaction.reply({ embeds: [joinEmbed] });
       } else {
-        const errEmbed = new EmbedBuilder().setDescription(`You must join the Stage channel!`).setColor(process.env.ERROR_COLOR);
+        const errEmbed = new EmbedBuilder().setDescription(`You must join the Stage channel!`).setColor(process.env.ERROR_COLOR as ColorResolvable);
         return interaction.reply({ embeds: [errEmbed] });
       }
     } else if (interaction.options.getSubcommand() === 'open') {
-      const categoryChannel = await interaction.guild.channels.cache.find((channel) => channel.name === 'Listening Party');
+      const categoryChannel = <CategoryChannel>interaction.guild?.channels.cache.find((channel) => channel.name === 'Listening Party');
       categoryChannel.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             allow: [PermissionFlagsBits.ViewChannel]
           }
         ]
       });
 
-      const listeningPartyChat = await categoryChannel.children.cache.find((channel) => channel.name === 'listening-party-chat');
+      const listeningPartyChat = <TextChannel>categoryChannel.children.cache.find((channel) => channel.name === 'listening-party-chat');
       listeningPartyChat.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
           },
           {
-            id: interaction.guild.roles.cache.find((role) => role.name === 'Bot').id,
+            id: interaction.guild?.roles.cache.find((role) => role.name === 'Bot')?.id ?? 'fakeid',
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
@@ -301,11 +332,11 @@ module.exports = {
         ]
       });
 
-      const stageChannel = await categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
+      const stageChannel = <StageChannel>categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
       stageChannel.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect]
           },
           {
@@ -316,14 +347,14 @@ module.exports = {
       });
       stageChannel.setTopic(`Listening to ${stageChannel.name}!`);
 
-      const confirmEmbed = new EmbedBuilder().setDescription(`**${stageChannel.name}** channels have been opened to everyone!`).setColor(process.env.CONFIRM_COLOR);
+      const confirmEmbed = new EmbedBuilder().setDescription(`**${stageChannel.name}** channels have been opened to everyone!`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
       interaction.reply({ embeds: [confirmEmbed] });
     } else if (interaction.options.getSubcommand() === 'close') {
-      const categoryChannel = await interaction.guild.channels.cache.find((channel) => channel.name === 'Listening Party');
+      const categoryChannel = <CategoryChannel>interaction.guild?.channels.cache.find((channel) => channel.name === 'Listening Party');
       categoryChannel.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
@@ -333,15 +364,15 @@ module.exports = {
         ]
       });
 
-      const listeningPartyChat = await categoryChannel.children.cache.find((channel) => channel.name === 'listening-party-chat');
+      const listeningPartyChat = <TextChannel>categoryChannel.children.cache.find((channel) => channel.name === 'listening-party-chat');
       listeningPartyChat.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
-            id: interaction.guild.roles.cache.find((role) => role.name === 'Bot').id,
+            id: interaction.guild?.roles.cache.find((role) => role.name === 'Bot')?.id ?? 'fakeid',
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
@@ -351,11 +382,11 @@ module.exports = {
         ]
       });
 
-      const stageChannel = await categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
+      const stageChannel = <StageChannel>categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
       stageChannel.edit({
         permissionOverwrites: [
           {
-            id: interaction.guild.roles.everyone.id,
+            id: interaction.guild?.roles.everyone.id ?? 'fakeid',
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
@@ -365,13 +396,13 @@ module.exports = {
         ]
       });
 
-      const confirmEmbed = new EmbedBuilder().setDescription(`**${stageChannel.name}** channels have been closed.`).setColor(process.env.CONFIRM_COLOR);
+      const confirmEmbed = new EmbedBuilder().setDescription(`**${stageChannel.name}** channels have been closed.`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
       interaction.reply({ embeds: [confirmEmbed] });
     } else if (interaction.options.getSubcommand() === 'archive') {
-      const categoryChannel = await interaction.guild.channels.cache.find((channel) => channel.name === 'Listening Party');
-      const listeningPartyChat = await categoryChannel.children.cache.find((channel) => channel.name === 'listening-party-chat');
-      const stageChannel = await categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
-      const archivesChannel = await interaction.guild.channels.cache.find((channel) => channel.name === 'archived');
+      const categoryChannel = <CategoryChannel>interaction.guild?.channels.cache.find((channel) => channel.name === 'Listening Party');
+      const listeningPartyChat = <TextChannel>categoryChannel.children.cache.find((channel) => channel.name === 'listening-party-chat');
+      const stageChannel = <StageChannel>categoryChannel.children.cache.find((channel) => channel.type === ChannelType.GuildStageVoice);
+      const archivesChannel = <CategoryChannel>interaction.guild?.channels.cache.find((channel) => channel.name === 'archived');
 
       await listeningPartyChat.edit({
         parent: archivesChannel
@@ -380,8 +411,10 @@ module.exports = {
       await stageChannel.delete();
       await categoryChannel.delete();
 
-      const confirmEmbed = new EmbedBuilder().setDescription(`**${listeningPartyChat.name}** has been archived.`).setColor(process.env.CONFIRM_COLOR);
+      const confirmEmbed = new EmbedBuilder().setDescription(`**${listeningPartyChat.name}** has been archived.`).setColor(process.env.CONFIRM_COLOR as ColorResolvable);
       interaction.reply({ embeds: [confirmEmbed] });
     }
   }
 };
+
+export default listeningPartyCommand;
