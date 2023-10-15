@@ -1,9 +1,10 @@
-const { EmbedBuilder } = require('discord.js');
+import { ColorResolvable, EmbedBuilder, GuildMember, TextChannel } from 'discord.js';
+import { BotEvent } from '../lib/types';
 
-module.exports = {
+const guildMemberUpdateEvent: BotEvent = {
   name: 'guildMemberUpdate',
-  async execute(oldMember, newMember) {
-    const modChannel = newMember.guild.channels.cache.get(process.env.MODERATORS_CHANNEL_ID);
+  execute: (oldMember: GuildMember, newMember: GuildMember) => {
+    const modChannel = <TextChannel>newMember.guild.channels.cache.get(process.env.MODERATORS_CHANNEL_ID!);
     if (!modChannel) return;
 
     if (oldMember.communicationDisabledUntil === null && newMember.communicationDisabledUntil !== null) {
@@ -14,11 +15,11 @@ module.exports = {
           { name: 'User: ', value: `${newMember.user}` },
           { name: 'ID: ', value: `${newMember.user.id}` }
         ])
-        .setColor(process.env.ERROR_COLOR)
-        .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true }))
+        .setColor(process.env.ERROR_COLOR as ColorResolvable)
+        .setThumbnail(newMember.user.displayAvatarURL())
         .setFooter({
           text: newMember.guild.name,
-          iconURL: newMember.guild.iconURL({ dynamic: true })
+          iconURL: newMember.guild.iconURL() ?? 'Server Icon'
         })
         .setTimestamp();
 
@@ -31,11 +32,11 @@ module.exports = {
           { name: 'User: ', value: `${newMember.user}` },
           { name: 'ID: ', value: `${newMember.user.id}` }
         ])
-        .setColor(process.env.CONFIRM_COLOR)
-        .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true }))
+        .setColor(process.env.CONFIRM_COLOR as ColorResolvable)
+        .setThumbnail(newMember.user.displayAvatarURL())
         .setFooter({
           text: newMember.guild.name,
-          iconURL: newMember.guild.iconURL({ dynamic: true })
+          iconURL: newMember.guild.iconURL() ?? 'Server Icon'
         })
         .setTimestamp();
 
@@ -43,10 +44,10 @@ module.exports = {
     }
 
     // check if premium role was removed -> remove custom color role
-    const logChannel = newMember.guild.channels.cache.get(process.env.LOGS_CHANNEL_ID);
+    const logChannel = <TextChannel>newMember.guild.channels.cache.get(process.env.LOGS_CHANNEL_ID!);
     if (!logChannel) return;
 
-    if (oldMember._roles.includes(process.env.SUBSCRIBER_ROLE_ID) && !newMember._roles.includes(process.env.SUBSCRIBER_ROLE_ID)) {
+    if (oldMember.roles.cache.has(process.env.SUBSCRIBER_ROLE_ID!) && !newMember.roles.cache.has(process.env.SUBSCRIBER_ROLE_ID!)) {
       const customColorRole = newMember.roles.cache.find((role) => role.name == 'Subscriber Custom Color');
       if (!customColorRole) return;
 
@@ -66,3 +67,5 @@ module.exports = {
     }
   }
 };
+
+export default guildMemberUpdateEvent;

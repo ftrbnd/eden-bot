@@ -1,19 +1,20 @@
-const { EmbedBuilder } = require('discord.js');
+import { ColorResolvable, EmbedBuilder, Message, TextChannel } from 'discord.js';
+import { BotEvent } from '../lib/types';
 
-module.exports = {
+const messageDeleteEvent: BotEvent = {
   name: 'messageDelete',
-  async execute(message) {
-    const logChannel = message.guild.channels.cache.get(process.env.LOGS_CHANNEL_ID);
-    if (!logChannel) return;
+  execute: async (message: Message) => {
+    const logChannel = <TextChannel>message.guild?.channels.cache.get(process.env.LOGS_CHANNEL_ID!);
+    if (!logChannel) return console.log('Log channel not found');
     if (message.author.bot) return;
 
     const msgDeleteEmbed = new EmbedBuilder()
       .setAuthor({
         name: `A message by ${message.author.tag} was deleted`,
-        iconURL: message.author.displayAvatarURL({ dynamic: true })
+        iconURL: message.author.displayAvatarURL()
       })
       .addFields([{ name: 'Channel', value: `${message.channel}` }])
-      .setColor(process.env.ERROR_COLOR)
+      .setColor(process.env.ERROR_COLOR as ColorResolvable)
       .setTimestamp();
 
     if (message.attachments.size > 0) {
@@ -26,7 +27,10 @@ module.exports = {
       const embedMessage = await logChannel.send({ embeds: [msgDeleteEmbed] });
 
       message.attachments.forEach(async (attachment) => {
-        const attachmentEmbed = new EmbedBuilder().setTitle(`Deleted attachment from ${message.author.tag}`).setImage(attachment.url).setColor(process.env.ERROR_COLOR);
+        const attachmentEmbed = new EmbedBuilder()
+          .setTitle(`Deleted attachment from ${message.author.tag}`)
+          .setImage(attachment.url)
+          .setColor(process.env.ERROR_COLOR as ColorResolvable);
 
         await embedMessage.reply({ embeds: [attachmentEmbed] });
       });
@@ -37,3 +41,5 @@ module.exports = {
     }
   }
 };
+
+export default messageDeleteEvent;

@@ -1,9 +1,10 @@
-const { EmbedBuilder, ChannelType } = require('discord.js');
+import { EmbedBuilder, ChannelType, ColorResolvable, VoiceChannel, TextChannel } from 'discord.js';
+import { BotEvent } from '../lib/types';
 
-module.exports = {
+const channelUpdateEvent: BotEvent = {
   name: 'channelUpdate',
-  async execute(oldChannel, newChannel) {
-    const logChannel = oldChannel.guild.channels.cache.get(process.env.LOGS_CHANNEL_ID);
+  execute: async (oldChannel: TextChannel | VoiceChannel, newChannel: TextChannel | VoiceChannel) => {
+    const logChannel = <TextChannel>oldChannel.guild.channels.cache.get(process.env.LOGS_CHANNEL_ID!);
     if (!logChannel) return;
 
     const channelType = oldChannel.type === ChannelType.GuildText ? 'text' : 'voice'; // if oldChannel type is GUILD_TEXT, then set channelType to text
@@ -15,10 +16,10 @@ module.exports = {
           { name: 'Previous name', value: oldChannel.name },
           { name: 'New name', value: newChannel.name }
         ])
-        .setColor(process.env.CONFIRM_COLOR)
+        .setColor(process.env.CONFIRM_COLOR as ColorResolvable)
         .setFooter({
-          text: `${oldChannel.guild.name}`,
-          iconURL: oldChannel.guild.iconURL({ dynamic: true })
+          text: `${oldChannel.guild.name}` ?? 'Server Name',
+          iconURL: oldChannel.guild.iconURL() ?? 'Server Icon'
         })
         .setTimestamp();
 
@@ -26,3 +27,5 @@ module.exports = {
     }
   }
 };
+
+export default channelUpdateEvent;
