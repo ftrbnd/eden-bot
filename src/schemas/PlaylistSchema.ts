@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export interface PlaylistDocument {
+export interface PlaylistDocument extends mongoose.Document {
   _id?: string;
   name: string;
   link: string;

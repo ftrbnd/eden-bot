@@ -88,7 +88,7 @@ client.login(process.env.DISCORD_TOKEN);
 // reddit.execute(client);
 
 // Mongo DB
-mongoDB.execute(client);
+mongoDB(client);
 
 // Firebase
-firebase.execute(client);
+firebase(client);
