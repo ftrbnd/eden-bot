@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, ColorResolvable, EmbedBuilder } from 'discord.js';
 import MusicPermission, { MusicPermissionDocument } from '../schemas/MusicPermissionSchema';
 
-const execute = async (interaction: ChatInputCommandInteraction) => {
+const getAllowedRoleId = async (interaction: ChatInputCommandInteraction) => {
   const roleData = await MusicPermission.find({}, (err: any, data: MusicPermissionDocument) => {
     if (err) {
       const errEmbed = new EmbedBuilder().setDescription('An error occurred.').setColor(process.env.ERROR_COLOR as ColorResolvable);
@@ -20,4 +20,4 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
   return roleData[0].roleId;
 };
 
-export default execute;
+export default getAllowedRoleId;

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export interface MusicPermissionDocument {
+export interface MusicPermissionDocument extends mongoose.Document {
   _id?: string;
   roleName: string;
   roleId: string;
